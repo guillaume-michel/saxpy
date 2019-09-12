@@ -4,6 +4,19 @@
 (defun replicate-float (x)
   (%make-simd-pack-single x x x x))
 
+(declaim (inline %saxpy2))
+(defun %saxpy2 (i alpha x y)
+  (declare (type fixnum i)
+           (type (simd-pack single-float) alpha)
+           (type system-area-pointer x y)
+           (optimize (speed 3) (debug 0) (safety 0)))
+  (let ((rx (%load-f4 i x))
+        (ry (%load-f4 i y)))
+    (%store-f4 i
+               y
+               (f4+ (f4* alpha rx)
+                    ry))))
+
 (defun saxpy (a x y)
   "BLAS SAXPY function: Y = a*X + Y with single-float elements"
   (declare (optimize (speed 3)
@@ -20,7 +33,7 @@
             (n (array-dimension data-x 0)))
         (declare (type fixnum n)
                  (type system-area-pointer sap-x sap-y))
-        (loop for i below n by 4 do
+        (loop :for i :of-type fixnum :below n :by 4 :do
              (%saxpy (* 4 i) sse-a sap-x sap-y))))))
 
 (defun test (N M)
@@ -29,3 +42,11 @@
         (y (make-array N :element-type 'single-float :initial-element 2.0f0)))
     (time (dotimes (j M)
             (saxpy a x y)))))
+
+(defun test2 (N M)
+  (let ((a 1.0f0)
+        (x (make-array N :element-type 'single-float :initial-element 1.0f0))
+        (y (make-array N :element-type 'single-float :initial-element 2.0f0)))
+    (time (dotimes (j M)
+            (saxpy a x y)))
+    y))
